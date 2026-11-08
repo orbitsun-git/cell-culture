@@ -117,11 +117,11 @@
                 <div class="flex-1 w-full flex items-center space-x-3">
                     <span class="text-xs text-slate-400">속도</span>
                     <select id="sim-speed" onchange="updateSpeed()" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-cyan-500">
-                        <option value="0.03">0.1x 배속 (아주 천천히)</option>
-                        <option value="0.08">0.5x 배속 (천천히)</option>
-                        <option value="0.2" selected>1x 배속 (표준)</option>
-                        <option value="0.5">2x 배속 (빠르게)</option>
-                        <option value="1.2">5x 배속 (매우 빠르게)</option>
+                        <option value="0.2">0.1x 배속 (천천히)</option>
+                        <option value="0.5">0.5x 배속</option>
+                        <option value="1.0" selected>1x 배속 (표준)</option>
+                        <option value="2.5">2x 배속 (빠르게)</option>
+                        <option value="5.0">5x 배속 (매우 빠르게)</option>
                     </select>
                     <input type="range" id="timeline-slider" min="0" max="30" step="0.1" value="0" oninput="onTimelineChange(this.value)" class="w-full accent-cyan-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
                     <span class="text-xs text-slate-400 min-w-[35px]">30일</span>
@@ -298,7 +298,7 @@
         let currentTech = 'spheroid';
         let isPlaying = false;
         let day = 0.0;
-        let speed = 0.2;
+        let speed = 1.0; // 기본 1배속
 
         let density = 2;
         let oxygenLevel = 80;
@@ -420,7 +420,6 @@
             }
         }
 
-        // 모든 세포를 미리 최대치로 생성해두고, 날짜(day) 진행에 따라 세포들의 스케일과 위치를 부드럽게 팽창(Grow)시켜 역동적인 증식감을 부여
         function rebuildCells() {
             while(cellGroup.children.length > 0){
                 cellGroup.remove(cellGroup.children[0]);
@@ -429,7 +428,6 @@
             const geo = new THREE.SphereGeometry(0.48, 16, 16);
 
             if (currentMode === 'compare') {
-                // 2D 단층
                 for(let i=0; i<180; i++) {
                     const mat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
                     const mesh = new THREE.Mesh(geo, mat);
@@ -440,7 +438,6 @@
                     cellGroup.add(mesh);
                 }
 
-                // 3D 스페로이드
                 for(let i=0; i<320; i++) {
                     const radius = Math.cbrt(Math.random()) * 4.2;
                     const theta = Math.random() * Math.PI * 2;
@@ -496,16 +493,13 @@
             updateMetrics();
         }
 
-        // 날짜에 따라 세포들의 위치가 안에서 바깥으로 부드럽게 퍼져나가며 자라나는 모핑 구현
         function updateGrowthAnimation() {
             if (!cellGroup) return;
-            // Day 0일 때 0.5배 크기, Day 30일 때 1.15배 크기로 점진적 팽창
             const growthFactor = 0.5 + (day / 30) * 0.65; 
 
             cellGroup.children.forEach(cell => {
                 if (cell.userData && cell.userData.basePos) {
                     const bp = cell.userData.basePos;
-                    // 안쪽 세포는 적게, 바깥쪽 세포는 비례해서 밀려나며 자라도록 계산
                     const currentScale = growthFactor * (0.6 + 0.4 * (cell.userData.origRadius ? cell.userData.origRadius / 4.0 : 1.0));
                     
                     if (currentMode === 'compare' && cell.position.x > 0) {
@@ -514,7 +508,6 @@
                         cell.position.set(bp.x * currentScale, bp.y * currentScale, bp.z * currentScale);
                     }
 
-                    // 초기 적응기(Day 5 이전)에는 세포들이 작게 숨어있다가 서서히 나타나는 연출
                     if (cell.userData.origRadius) {
                         const appearThreshold = cell.userData.origRadius * 0.35;
                         cell.visible = (day / 30) * 4.2 >= appearThreshold - 0.5;
@@ -536,7 +529,7 @@
 
         function toggleCutoff(checked) {
             enableCutoff = checked;
-            rebuildCells();
+            updateCutoffVisual();
         }
 
         function toggleHeatmap(checked) {
@@ -651,8 +644,8 @@
             requestAnimationFrame(animate);
 
             if (isPlaying) {
-                // 선택한 배속에 맞춰 매 프레임마다 아주 부드럽고 연속적으로 세포들이 팽창하며 자라남
-                day += 0.003 * speed;
+                // 배속(speed) 옵션에 비례해 속도가 확실하게 반영되도록 상향 조정
+                day += 0.025 * speed;
                 if (day > 30) {
                     day = 30;
                     isPlaying = false;
