@@ -117,11 +117,11 @@
                 <div class="flex-1 w-full flex items-center space-x-3">
                     <span class="text-xs text-slate-400">속도</span>
                     <select id="sim-speed" onchange="updateSpeed()" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-cyan-500">
-                        <option value="0.1">0.1x 배속 (매우 천천히)</option>
-                        <option value="0.5">0.5x 배속 (천천히)</option>
-                        <option value="1" selected>1x 배속 (표준)</option>
-                        <option value="2">2x 배속 (빠르게)</option>
-                        <option value="5">5x 배속 (매우 빠르게)</option>
+                        <option value="0.05">0.1x 배속 (아주 천천히)</option>
+                        <option value="0.15">0.5x 배속 (천천히)</option>
+                        <option value="0.3" selected>1x 배속 (표준)</option>
+                        <option value="0.7">2x 배속 (빠르게)</option>
+                        <option value="1.5">5x 배속 (매우 빠르게)</option>
                     </select>
                     <input type="range" id="timeline-slider" min="0" max="30" step="0.1" value="0" oninput="onTimelineChange(this.value)" class="w-full accent-cyan-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
                     <span class="text-xs text-slate-400 min-w-[35px]">30일</span>
@@ -298,7 +298,7 @@
         let currentTech = 'spheroid';
         let isPlaying = false;
         let day = 0.0;
-        let speed = 1.0; // 기본 표준 배속 (1x)
+        let speed = 0.3; // 기본 표준 배속
 
         let density = 2;
         let oxygenLevel = 80;
@@ -309,6 +309,7 @@
 
         let scene, camera, renderer, controls;
         let cellGroup;
+        let lastBuiltDay = -1;
 
         window.addEventListener('load', () => {
             lucide.createIcons();
@@ -424,11 +425,11 @@
                 cellGroup.remove(cellGroup.children[0]);
             }
 
+            lastBuiltDay = day;
             const geo = new THREE.SphereGeometry(0.48, 16, 16);
 
             if (currentMode === 'compare') {
-                // 2D Monolayer (-9 X) - 약간씩 증식
-                const count2D = Math.floor(100 + day * 3);
+                const count2D = Math.floor(100 + day * 2);
                 for(let i=0; i<count2D; i++) {
                     const mat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
                     const mesh = new THREE.Mesh(geo, mat);
@@ -438,9 +439,8 @@
                     cellGroup.add(mesh);
                 }
 
-                // 3D Spheroid (+9 X) - 날짜 진행에 따라 반지름이 뚜렷하게 자람
-                const baseRadius = 2.5 + (day * 0.12);
-                const count3D = Math.floor(150 + day * 8);
+                const baseRadius = 2.5 + (day * 0.08);
+                const count3D = Math.floor(150 + day * 5);
                 for(let i=0; i<count3D; i++) {
                     const radius = Math.cbrt(Math.random()) * baseRadius;
                     const theta = Math.random() * Math.PI * 2;
@@ -452,9 +452,9 @@
 
                     let color = 0x34d399;
                     if (enableHeatmap) {
-                        if (radius > baseRadius * 0.65) color = 0x34d399; // 외각: 고산소
-                        else if (radius > baseRadius * 0.35) color = 0xfbbf24; // 중간: 저산소
-                        else color = 0xf43f5e; // 중심부: 괴사층
+                        if (radius > baseRadius * 0.65) color = 0x34d399;
+                        else if (radius > baseRadius * 0.35) color = 0xfbbf24;
+                        else color = 0xf43f5e;
                     }
 
                     const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
@@ -463,7 +463,7 @@
                     cellGroup.add(mesh);
                 }
             } else if (currentTech === 'monolayer') {
-                const count = Math.floor((density * 80) + day * 4);
+                const count = Math.floor((density * 80) + day * 3);
                 for(let i=0; i<count; i++) {
                     const mat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
                     const mesh = new THREE.Mesh(geo, mat);
@@ -473,16 +473,16 @@
                     cellGroup.add(mesh);
                 }
             } else if (currentTech === 'microcarrier') {
-                const carrierGeo = new THREE.SphereGeometry(3 + (day * 0.03), 32, 32);
+                const carrierGeo = new THREE.SphereGeometry(3 + (day * 0.02), 32, 32);
                 const carrierMat = new THREE.MeshStandardMaterial({ color: 0x475569, transparent: true, opacity: 0.6 });
                 const carrier = new THREE.Mesh(carrierGeo, carrierMat);
                 cellGroup.add(carrier);
 
-                const count = Math.floor((density * 90) + day * 5);
+                const count = Math.floor((density * 90) + day * 3);
                 for(let i=0; i<count; i++) {
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos(2 * Math.random() - 1);
-                    const r = 3.2 + (day * 0.03);
+                    const r = 3.2 + (day * 0.02);
                     const x = r * Math.sin(phi) * Math.cos(theta);
                     const y = r * Math.sin(phi) * Math.sin(theta);
                     const z = r * Math.cos(phi);
@@ -501,7 +501,7 @@
                     tube.position.set(0, t, 0);
                     cellGroup.add(tube);
 
-                    const count = Math.floor(50 + day * 2);
+                    const count = Math.floor(50 + day * 1.5);
                     for (let c = 0; c < count; c++) {
                         const cellMat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
                         const mesh = new THREE.Mesh(geo, cellMat);
@@ -513,8 +513,8 @@
                     }
                 }
             } else if (currentTech === 'callus') {
-                const count = Math.floor((density * 90) + day * 5);
-                const bound = 3 + (day * 0.1);
+                const count = Math.floor((density * 90) + day * 3);
+                const bound = 3 + (day * 0.08);
                 for(let i=0; i<count; i++) {
                     const x = (Math.random() - 0.5) * bound * 2;
                     const y = (Math.random() - 0.5) * bound * 2;
@@ -526,9 +526,8 @@
                     cellGroup.add(mesh);
                 }
             } else {
-                // 표준 3D 스페로이드
-                const count = Math.floor((density * 100) + day * 7);
-                const baseRadius = 2.8 + (day * 0.12);
+                const count = Math.floor((density * 100) + day * 4);
+                const baseRadius = 2.8 + (day * 0.08);
                 for(let i=0; i<count; i++) {
                     const radius = Math.cbrt(Math.random()) * baseRadius;
                     const theta = Math.random() * Math.PI * 2;
@@ -665,7 +664,13 @@
 
         function onTimelineChange(val) {
             day = parseFloat(val);
-            rebuildCells();
+            document.getElementById('timeline-slider').value = day;
+            // 슬라이더를 직접 움직일 때는 날짜 차이가 1일 이상 날 때만 리빌드하여 부드럽게 연동
+            if (Math.abs(day - lastBuiltDay) > 0.8 || day === 0 || day === 30) {
+                rebuildCells();
+            } else {
+                updateMetrics();
+            }
         }
 
         function updateSpeed() {
@@ -683,14 +688,20 @@
             requestAnimationFrame(animate);
 
             if (isPlaying) {
-                // 부드럽고 느린 성장 속도 계산 (1x 배속 기준 적정 페이스)
-                day += 0.015 * speed;
+                // 부드러운 속도 제어를 위해 증가량 세밀화
+                day += 0.008 * speed;
                 if (day > 30) {
                     day = 30;
                     isPlaying = false;
                 }
                 document.getElementById('timeline-slider').value = day;
-                rebuildCells();
+                
+                // 날짜가 약 0.5일 단위 이상 지날 때만 세포 구조를 점진적으로 업데이트
+                if (Math.abs(day - lastBuiltDay) >= 0.5) {
+                    rebuildCells();
+                } else {
+                    updateMetrics();
+                }
             }
 
             if (cellGroup) {
