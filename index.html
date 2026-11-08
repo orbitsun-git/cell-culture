@@ -118,10 +118,10 @@
                     <span class="text-xs text-slate-400">속도</span>
                     <select id="sim-speed" onchange="updateSpeed()" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-cyan-500">
                         <option value="0.05">0.1x 배속 (아주 천천히)</option>
-                        <option value="0.15">0.5x 배속 (천천히)</option>
-                        <option value="0.3" selected>1x 배속 (표준)</option>
-                        <option value="0.7">2x 배속 (빠르게)</option>
-                        <option value="1.5">5x 배속 (매우 빠르게)</option>
+                        <option value="0.2">0.5x 배속 (천천히)</option>
+                        <option value="0.5" selected>1x 배속 (표준)</option>
+                        <option value="1.2">2x 배속 (빠르게)</option>
+                        <option value="2.5">5x 배속 (매우 빠르게)</option>
                     </select>
                     <input type="range" id="timeline-slider" min="0" max="30" step="0.1" value="0" oninput="onTimelineChange(this.value)" class="w-full accent-cyan-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
                     <span class="text-xs text-slate-400 min-w-[35px]">30일</span>
@@ -298,7 +298,7 @@
         let currentTech = 'spheroid';
         let isPlaying = false;
         let day = 0.0;
-        let speed = 0.3; // 기본 표준 배속
+        let speed = 0.5;
 
         let density = 2;
         let oxygenLevel = 80;
@@ -309,7 +309,6 @@
 
         let scene, camera, renderer, controls;
         let cellGroup;
-        let lastBuiltDay = -1;
 
         window.addEventListener('load', () => {
             lucide.createIcons();
@@ -354,6 +353,7 @@
             scene.add(cellGroup);
 
             window.addEventListener('resize', onWindowResize);
+            rebuildCells(); // 초기 세포 생성
         }
 
         function onWindowResize() {
@@ -420,17 +420,17 @@
             }
         }
 
+        // 세포를 한 번에 생성해두고 스케일(크기)만 부드럽게 키우는 방식으로 변경하여 끊김 현상 원천 차단
         function rebuildCells() {
             while(cellGroup.children.length > 0){
                 cellGroup.remove(cellGroup.children[0]);
             }
 
-            lastBuiltDay = day;
             const geo = new THREE.SphereGeometry(0.48, 16, 16);
 
             if (currentMode === 'compare') {
-                const count2D = Math.floor(100 + day * 2);
-                for(let i=0; i<count2D; i++) {
+                // 2D 단층
+                for(let i=0; i<140; i++) {
                     const mat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
                     const mesh = new THREE.Mesh(geo, mat);
                     const angle = (i * 0.3) % (Math.PI * 2);
@@ -439,97 +439,34 @@
                     cellGroup.add(mesh);
                 }
 
-                const baseRadius = 2.5 + (day * 0.08);
-                const count3D = Math.floor(150 + day * 5);
-                for(let i=0; i<count3D; i++) {
-                    const radius = Math.cbrt(Math.random()) * baseRadius;
+                // 3D 스페로이드 (내부 저산소/괴사 색상 구분 포함)
+                for(let i=0; i<280; i++) {
+                    const radius = Math.cbrt(Math.random()) * 3.8;
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos(2 * Math.random() - 1);
 
-                    const x = 9 + radius * Math.sin(phi) * Math.cos(theta);
+                    const x = radius * Math.sin(phi) * Math.cos(theta);
                     const y = radius * Math.sin(phi) * Math.sin(theta);
                     const z = radius * Math.cos(phi);
 
                     let color = 0x34d399;
                     if (enableHeatmap) {
-                        if (radius > baseRadius * 0.65) color = 0x34d399;
-                        else if (radius > baseRadius * 0.35) color = 0xfbbf24;
+                        if (radius > 2.5) color = 0x34d399;
+                        else if (radius > 1.3) color = 0xfbbf24;
                         else color = 0xf43f5e;
                     }
 
                     const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
                     const mesh = new THREE.Mesh(geo, mat);
-                    mesh.position.set(x, y, z);
-                    cellGroup.add(mesh);
-                }
-            } else if (currentTech === 'monolayer') {
-                const count = Math.floor((density * 80) + day * 3);
-                for(let i=0; i<count; i++) {
-                    const mat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
-                    const mesh = new THREE.Mesh(geo, mat);
-                    const angle = (i * 0.4) % (Math.PI * 2);
-                    const r = Math.sqrt(i) * 0.4;
-                    mesh.position.set(Math.cos(angle)*r, -6, Math.sin(angle)*r);
-                    cellGroup.add(mesh);
-                }
-            } else if (currentTech === 'microcarrier') {
-                const carrierGeo = new THREE.SphereGeometry(3 + (day * 0.02), 32, 32);
-                const carrierMat = new THREE.MeshStandardMaterial({ color: 0x475569, transparent: true, opacity: 0.6 });
-                const carrier = new THREE.Mesh(carrierGeo, carrierMat);
-                cellGroup.add(carrier);
-
-                const count = Math.floor((density * 90) + day * 3);
-                for(let i=0; i<count; i++) {
-                    const theta = Math.random() * Math.PI * 2;
-                    const phi = Math.acos(2 * Math.random() - 1);
-                    const r = 3.2 + (day * 0.02);
-                    const x = r * Math.sin(phi) * Math.cos(theta);
-                    const y = r * Math.sin(phi) * Math.sin(theta);
-                    const z = r * Math.cos(phi);
-
-                    const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3 });
-                    const mesh = new THREE.Mesh(geo, mat);
-                    mesh.position.set(x, y, z);
-                    cellGroup.add(mesh);
-                }
-            } else if (currentTech === 'hollowfiber') {
-                for (let t = -8; t <= 8; t += 8) {
-                    const tubeGeo = new THREE.CylinderGeometry(0.8, 0.8, 20, 16);
-                    const tubeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.3 });
-                    const tube = new THREE.Mesh(tubeGeo, tubeMat);
-                    tube.rotation.z = Math.PI / 2;
-                    tube.position.set(0, t, 0);
-                    cellGroup.add(tube);
-
-                    const count = Math.floor(50 + day * 1.5);
-                    for (let c = 0; c < count; c++) {
-                        const cellMat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
-                        const mesh = new THREE.Mesh(geo, cellMat);
-                        const angle = Math.random() * Math.PI * 2;
-                        const dist = 1.0 + Math.random() * 1.8;
-                        const posX = (Math.random() - 0.5) * 16;
-                        mesh.position.set(posX, t + Math.sin(angle)*dist, Math.cos(angle)*dist);
-                        cellGroup.add(mesh);
-                    }
-                }
-            } else if (currentTech === 'callus') {
-                const count = Math.floor((density * 90) + day * 3);
-                const bound = 3 + (day * 0.08);
-                for(let i=0; i<count; i++) {
-                    const x = (Math.random() - 0.5) * bound * 2;
-                    const y = (Math.random() - 0.5) * bound * 2;
-                    const z = (Math.random() - 0.5) * bound * 2;
-
-                    const mat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.6 });
-                    const mesh = new THREE.Mesh(geo, mat);
-                    mesh.position.set(x, y, z);
+                    mesh.position.set(9 + x, y, z);
+                    // 커스텀 데이터 저장 (성장 애니메이션용 기준 위치)
+                    mesh.userData = { origPos: new THREE.Vector3(x, y, z) };
                     cellGroup.add(mesh);
                 }
             } else {
-                const count = Math.floor((density * 100) + day * 4);
-                const baseRadius = 2.8 + (day * 0.08);
+                const count = density * 120;
                 for(let i=0; i<count; i++) {
-                    const radius = Math.cbrt(Math.random()) * baseRadius;
+                    const radius = Math.cbrt(Math.random()) * 4.0;
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos(2 * Math.random() - 1);
 
@@ -539,22 +476,45 @@
 
                     let color = 0x34d399;
                     if (currentMode === 'plant') {
-                        color = (radius > baseRadius * 0.5) ? 0x4ade80 : 0xa3e635;
+                        color = (radius > 2.0) ? 0x4ade80 : 0xa3e635;
                     } else if (enableHeatmap) {
-                        if (radius > baseRadius * 0.65) color = 0x34d399;
-                        else if (radius > baseRadius * 0.35) color = 0xfbbf24;
+                        if (radius > 2.6) color = 0x34d399;
+                        else if (radius > 1.3) color = 0xfbbf24;
                         else color = 0xf43f5e;
                     }
 
                     const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
                     const mesh = new THREE.Mesh(geo, mat);
                     mesh.position.set(x, y, z);
+                    mesh.userData = { origPos: new THREE.Vector3(x, y, z) };
                     cellGroup.add(mesh);
                 }
             }
 
+            updateGrowthScale();
             updateCutoffVisual();
             updateMetrics();
+        }
+
+        // 날짜(day)에 맞춰 3D 세포 덩어리의 크기를 부드럽게 스케일링
+        function updateGrowthScale() {
+            if (!cellGroup) return;
+            const scaleFactor = 0.7 + (day / 30) * 0.65; // Day 0부터 30까지 부드럽게 0.7배에서 1.35배로 팽창
+            
+            cellGroup.children.forEach(cell => {
+                if (cell.userData && cell.userData.origPos) {
+                    // 비교 모드일 때 오른쪽 3D 스페로이드만 크기 변화 적용 (+9 위치)
+                    if (currentMode === 'compare' && cell.position.x > 0) {
+                        cell.position.x = 9 + cell.userData.origPos.x * scaleFactor;
+                        cell.position.y = cell.userData.origPos.y * scaleFactor;
+                        cell.position.z = cell.userData.origPos.z * scaleFactor;
+                    } else if (currentMode !== 'compare') {
+                        cell.position.x = cell.userData.origPos.x * scaleFactor;
+                        cell.position.y = cell.userData.origPos.y * scaleFactor;
+                        cell.position.z = cell.userData.origPos.z * scaleFactor;
+                    }
+                }
+            });
         }
 
         function updateCutoffVisual() {
@@ -562,7 +522,7 @@
             const limitX = ((cutoffValue - 50) / 50) * 8;
             cellGroup.children.forEach(cell => {
                 if (enableCutoff && cell.geometry.type === 'SphereGeometry') {
-                    cell.visible = cell.position.x < limitX;
+                    cell.visible = cell.position.x < limitX || (currentMode === 'compare' && cell.position.x < (9 + limitX));
                 } else {
                     cell.visible = true;
                 }
@@ -659,18 +619,15 @@
             document.getElementById('timeline-slider').value = 0;
             const playText = document.getElementById('play-text');
             if(playText) playText.textContent = "재생";
-            rebuildCells();
+            updateGrowthScale();
+            updateMetrics();
         }
 
         function onTimelineChange(val) {
             day = parseFloat(val);
             document.getElementById('timeline-slider').value = day;
-            // 슬라이더를 직접 움직일 때는 날짜 차이가 1일 이상 날 때만 리빌드하여 부드럽게 연동
-            if (Math.abs(day - lastBuiltDay) > 0.8 || day === 0 || day === 30) {
-                rebuildCells();
-            } else {
-                updateMetrics();
-            }
+            updateGrowthScale();
+            updateMetrics();
         }
 
         function updateSpeed() {
@@ -681,31 +638,26 @@
             nutrientLevel = 100;
             document.getElementById('slider-nutrient').value = 100;
             document.getElementById('val-nutrient').textContent = '100%';
-            rebuildCells();
+            updateMetrics();
         }
 
         function animate() {
             requestAnimationFrame(animate);
 
             if (isPlaying) {
-                // 부드러운 속도 제어를 위해 증가량 세밀화
-                day += 0.008 * speed;
+                // 속도 선택값에 따라 아주 매끄럽고 차분하게 증가하도록 설정
+                day += 0.004 * speed;
                 if (day > 30) {
                     day = 30;
                     isPlaying = false;
                 }
                 document.getElementById('timeline-slider').value = day;
-                
-                // 날짜가 약 0.5일 단위 이상 지날 때만 세포 구조를 점진적으로 업데이트
-                if (Math.abs(day - lastBuiltDay) >= 0.5) {
-                    rebuildCells();
-                } else {
-                    updateMetrics();
-                }
+                updateGrowthScale();
+                updateMetrics();
             }
 
             if (cellGroup) {
-                cellGroup.rotation.y += 0.002;
+                cellGroup.rotation.y += 0.0015;
             }
 
             controls.update();
