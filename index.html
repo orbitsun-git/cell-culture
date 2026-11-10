@@ -6,6 +6,7 @@
     <title>3D 세포배양 환경 설계 & 시각화 시뮬레이터</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
     <!-- Three.js Library & OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -20,7 +21,8 @@
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
-    </style>
+     .chart-card{background:#1E2433;color:#F7F9FC;border-radius:12px;padding:14px;min-width:0}.chart-card h3{font-size:13px;margin-bottom:10px} #trajectory-table td,thead th{padding:8px;border-bottom:1px solid #343C52} @media(max-width:700px){header>div{height:auto!important;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;gap:10px}}
+</style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col overflow-x-hidden selection:bg-cyan-500 selection:text-slate-900">
 
@@ -80,24 +82,22 @@
                 <div class="absolute bottom-4 left-4 right-4 z-10 flex flex-wrap items-center justify-between text-xs text-slate-400 bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 backdrop-blur-md pointer-events-none">
                     <div class="flex items-center space-x-4">
                         <span class="flex items-center space-x-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                            <span>고산소 / 정상증식 세포</span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#AEC8F5]"></span>
+                            <span>생존 집단: 공급 양호</span>
                         </span>
                         <span class="flex items-center space-x-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                            <span>저산소 (정체) 세포</span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#2A5FC0]"></span>
+                            <span>생존 집단: 공급 부족</span>
                         </span>
-                        <span class="flex items-center space-x-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                            <span>괴사층 (Hypoxic Core)</span>
-                        </span>
+                        
                     </div>
                     <div class="text-cyan-300 font-mono text-[11px]">
-                        표면적/부피 비 (A/V) = 3 / r
+                        구형 덩어리에 한해 A/V = 3/r
                     </div>
                 </div>
             </div>
 
+            <p id="model-note" class="text-xs text-amber-300 leading-relaxed">원리 설명용 가상 모델</p>
             <!-- Timeline Control Panel -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="flex items-center space-x-3 w-full sm:w-auto">
@@ -117,10 +117,10 @@
                 <div class="flex-1 w-full flex items-center space-x-3">
                     <span class="text-xs text-slate-400">속도</span>
                     <select id="sim-speed" onchange="updateSpeed()" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-cyan-500">
-                        <option value="0.2">0.1x 배속 (천천히)</option>
+                        <option value="0.1">0.1x 배속 (천천히)</option>
                         <option value="0.5">0.5x 배속</option>
                         <option value="1.0" selected>1x 배속 (표준)</option>
-                        <option value="2.5">2x 배속 (빠르게)</option>
+                        <option value="2.0">2x 배속 (빠르게)</option>
                         <option value="5.0">5x 배속 (매우 빠르게)</option>
                     </select>
                     <input type="range" id="timeline-slider" min="0" max="30" step="0.1" value="0" oninput="onTimelineChange(this.value)" class="w-full accent-cyan-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
@@ -148,7 +148,7 @@
 
                 <div class="grid grid-cols-2 gap-3 mb-4">
                     <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80">
-                        <span class="text-[11px] text-slate-400">총 세포 수</span>
+                        <span class="text-[11px] text-slate-400">살아 있는 세포 수</span>
                         <div class="text-lg font-extrabold text-cyan-400 mt-0.5">
                             <span id="stat-cell-count">1.50</span> <span class="text-xs font-normal text-slate-400">x10⁶</span>
                         </div>
@@ -163,7 +163,7 @@
 
                 <div class="space-y-2.5 text-xs bg-slate-950/60 p-3 rounded-lg border border-slate-800/60">
                     <div class="flex justify-between items-center">
-                        <span class="text-slate-400">중심부 산소 분압 (pO₂)</span>
+                        <span class="text-slate-400">내부 산소 지표 (가상 pO₂)</span>
                         <span id="metric-oxygen" class="font-semibold text-slate-200">118 mmHg</span>
                     </div>
                     <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -171,7 +171,7 @@
                     </div>
 
                     <div class="flex justify-between items-center pt-1">
-                        <span class="text-slate-400">약물/영양분 침투 효율</span>
+                        <span class="text-slate-400">상대적 영양 공급 지표</span>
                         <span id="metric-diffusion" class="font-semibold text-slate-200">100%</span>
                     </div>
                     <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -212,7 +212,7 @@
 
                         <div>
                             <div class="flex justify-between mb-1">
-                                <span class="text-slate-400">산소 공급 수준 (pO₂ Flow)</span>
+                                <span class="text-slate-400">외부 산소 공급 수준</span>
                                 <span id="val-oxygen" class="text-cyan-400 font-semibold">80%</span>
                             </div>
                             <input type="range" id="slider-oxygen" min="20" max="100" value="80" oninput="onParamChange()" class="w-full accent-cyan-500 bg-slate-950 h-1.5 rounded-lg cursor-pointer">
@@ -220,7 +220,7 @@
 
                         <div>
                             <div class="flex justify-between mb-1">
-                                <span class="text-slate-400">영양분 공급 수준 (Glucose/Media)</span>
+                                <span class="text-slate-400">초기·신선한 배지 영양분 농도</span>
                                 <span id="val-nutrient" class="text-cyan-400 font-semibold">85%</span>
                             </div>
                             <input type="range" id="slider-nutrient" min="20" max="100" value="85" oninput="onParamChange()" class="w-full accent-cyan-500 bg-slate-950 h-1.5 rounded-lg cursor-pointer">
@@ -248,12 +248,19 @@
                     </div>
                 </div>
 
-                <div class="mt-5 pt-4 border-t border-slate-800 flex gap-2">
+                <div class="mt-4 p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+<label for="culture-protocol" class="text-cyan-300">배지 관리 방식</label>
+<select id="culture-protocol" onchange="setCultureProtocol(this.value)" class="w-full mt-2 bg-slate-900 border border-slate-700 rounded p-2">
+<option value="batch">배지 무교체</option><option value="manual">직접 배지 교체</option></select>
+<p class="text-slate-400 mt-2 leading-relaxed">50% 교체: 영양분은 신선한 배지와 혼합되고 노폐물은 절반으로 줄어듭니다. 살아 있는 세포 수와 죽은 세포 수는 즉시 변하지 않습니다. 부유 배양도 세포를 유지하며 교체한다고 가정합니다. 중공섬유 역시 이 비교에서는 지속 관류를 하지 않습니다.</p>
+<p id="exchange-log" class="text-cyan-300 mt-2">교체 기록 없음</p>
+<p class="text-slate-400 mt-2">초기화하면 시간과 교체 기록이 초기화됩니다. 초기 조건 슬라이더 변경은 과거 교체 기록을 같은 시점에 적용해 전체 경과를 다시 계산합니다.</p>
+</div><div class="mt-5 pt-4 border-t border-slate-800 flex gap-2">
                     <button onclick="resetSimulation()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition">
                         초기화
                     </button>
-                    <button onclick="triggerNutrientPulse()" class="flex-1 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-medium transition">
-                        신선한 배지 교체
+                    <button id="medium-exchange" disabled style="opacity:.4" onclick="triggerNutrientPulse()" title="배양액의 50%를 신선한 배지로 교체합니다" class="flex-1 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-medium transition">
+                        배지 50% 교체
                     </button>
                 </div>
             </div>
@@ -261,6 +268,27 @@
         </div>
     </main>
 
+<section class="max-w-7xl mx-auto px-4 pb-6 w-full" aria-label="배지 관리 비교">
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+<h2 class="font-bold text-lg">같은 기술 · 같은 초기 조건 · 배지 관리만 비교</h2>
+<p class="text-xs text-slate-400 mt-2">비교 모드에서는 오른쪽 스페로이드를 기준으로 합니다. 왼쪽은 무교체, 오른쪽은 기록한 교체를 적용한 가상 대조 실험입니다. 미래 예측선 대신 현재 시점까지의 경과만 표시합니다.</p>
+<div class="flex flex-wrap gap-2 mt-4"><button onclick="demoMediumComparison()" class="bg-cyan-700 rounded px-4 py-2 text-sm">발표 시연: Day 10 교체 → Day 15 비교</button><button onclick="resetSimulation()" class="bg-slate-700 rounded px-4 py-2 text-sm">처음부터 다시</button></div>
+<div id="paired-summary" class="grid sm:grid-cols-2 gap-4 my-4" aria-live="polite"></div>
+<p id="comparison-explanation" class="text-xs text-slate-300 mb-4"></p>
+<div class="grid lg:grid-cols-3 gap-4">
+<div class="chart-card"><h3>살아 있는 세포 수</h3><div style="height:230px"><canvas id="trend-live" aria-label="생존 세포 수 경과"></canvas></div></div>
+<div class="chart-card"><h3>초기 대비 영양분 잔량</h3><div style="height:230px"><canvas id="trend-food" aria-label="영양분 잔량 경과"></canvas></div></div>
+<div class="chart-card"><h3>노폐물 축적</h3><div style="height:230px"><canvas id="trend-waste" aria-label="노폐물 경과"></canvas></div></div>
+</div><p id="chart-error" class="text-xs text-amber-300 mt-2"></p>
+<details class="mt-4 text-xs"><summary class="cursor-pointer">일별 계산값 표 보기 · 접근성 대체 자료</summary><div class="overflow-auto mt-3" style="max-height:300px"><table class="w-full text-left"><thead><tr><th>Day</th><th>조건</th><th>생존 세포 (×10⁶)</th><th>영양분 (%)</th><th>노폐물 (상대 단위)</th></tr></thead><tbody id="trajectory-table"></tbody></table></div></details>
+<details class="mt-4 text-xs leading-relaxed"><summary class="cursor-pointer">모델의 가정과 한계 · 발표에서 설명할 내용</summary><ul class="list-disc pl-5 mt-2 space-y-2">
+<li>실험 자료가 아닌 가상 계산 결과입니다. 세포종별 증식·소비·사멸 계수와 공간 한계는 임의의 교육용 값이며, 기술별 수율 순위를 판단할 수 없습니다.</li>
+<li>생존 세포 = 이전 생존 세포 + 새로 생성된 세포 − 죽은 세포. 영양분은 증식과 유지에 소비되고, 소비에 따라 노폐물이 축적됩니다.</li>
+<li>50% 배지 교체는 영양분 농도를 신선한 배지와 절반씩 혼합하고 노폐물을 절반으로 줄입니다. 죽은 세포가 살아나지는 않습니다. 모든 기술에서 세포를 유지한 채 배지만 교체한다고 가정합니다.</li>
+<li>산소는 외부와 교환되며 세포 밀도와 기술별 전달 계수에 따라 내부 지표가 달라집니다. 실제 확산 방정식을 풀지 않으며 세포 크기·거리·산소 분압을 실험적으로 보정하지 않았습니다. 중공섬유도 이 시연에서는 지속 관류를 하지 않습니다.</li>
+<li>구체는 여러 세포를 대표합니다. 사멸 집단은 시각화에서 숨기지만 계산에는 누적 사멸 수를 유지합니다. 화면에서 사라지는 것은 실제 사체 제거를 뜻하지 않으며, 개별 세포의 위치·분열·사멸을 추적하지 않습니다. 생존율은 생존/(생존+누적 사멸)로 계산합니다.</li>
+<li>스페로이드와 오가노이드는 같은 개념이 아닙니다. 이 화면은 단순한 구형 집합체만 표현하며, 오가노이드의 분화·조직화·기능은 재현하지 않습니다. 식물의 호르몬 반응·재분화 역시 재현하지 않습니다.</li>
+</ul></details></div></section>
     <!-- Bottom Presentation Guide Drawer -->
     <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 w-full">
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
@@ -284,7 +312,7 @@
         ];
 
         const PLANT_TECHS = [
-            { id: 'callus', name: '캘러스 배양 (Callus Culture)', desc: '【발표 5단계】 상처 부위에서 유도되는 탈분화 무정형 세포 덩어리로, 세포의 전형성능(Totipotency)을 이용하여 완전한 식물체로 재분화시킵니다.' },
+            { id: 'callus', name: '캘러스 배양 (Callus Culture)', desc: '【발표 5단계】 상처 부위에서 유도되는 탈분화 무정형 세포 덩어리로, 세포의 전능성(Totipotency)을 바탕으로 적절한 호르몬 등 조건에서 식물체로 재분화할 수 있습니다.' },
             { id: 'suspension', name: '식물 부유 세포 배양 (Suspension)', desc: '캘러스 세포를 액체 배지에서 액상 교반하여 미세 집합체 형태로 균일하게 대량 증식시키는 이차대사산물 생산 기술입니다.' },
             { id: 'hairyroot', name: '모상근 배양 (Hairy Root Culture)', desc: 'Agrobacterium rhizogenes 균주를 이용해 형질전환된 뿌리 조직을 영구 분지 증식시켜 생리활성 물질을 대량 생산합니다.' },
             { id: 'protoplast', name: '원형질체 배양 (Protoplast)', desc: '식물 세포벽을 효소로 제거한 원형질체 형태로 유전자 도입 및 세포 융합 연구의 기초 모델로 활용됩니다.' }
@@ -663,6 +691,297 @@
             controls.update();
             renderer.render(scene, camera);
         }
+
+// 기술별 구조 및 교육용 모델: 실험 데이터에 적합한 예측 모델이 아님.
+const models = {
+ spheroid:{shape:'ball',transport:.48,growth:1},
+ microcarrier:{shape:'carrier',transport:.86,growth:1.15},
+ monolayer:{shape:'flat',transport:1,growth:.8},
+ hollowfiber:{shape:'fiber',transport:.95,growth:1.1},
+ callus:{shape:'callus',transport:.52,growth:.7},
+ suspension:{shape:'suspension',transport:.88,growth:.9},
+ hairyroot:{shape:'root',transport:.72,growth:.65},
+ protoplast:{shape:'single',transport:.92,growth:.5}
+};
+function modelMetrics(tech){
+ const m=models[tech]||models.spheroid;
+ const age=day/30, load=(.25+.75*age)*density/2;
+ const oxygen=Math.max(0,140*oxygenLevel/100-100*(1-m.transport)*load);
+ const food=Math.max(0,nutrientLevel/100-.6*(1-m.transport)*load);
+ const availability=Math.min(oxygen/100,food);
+ const viability=Math.max(0,Math.min(99,99-55*Math.max(0,.55-availability)-Math.max(0,day-22)*(.3+1-m.transport)));
+ const count=1.5*density/2*(1+5*m.growth*(1-Math.exp(-day/12))*Math.min(1,availability*1.5));
+ return {oxygen,food,viability,count,diffusion:Math.max(0,Math.min(100,100*(m.transport+(1-m.transport)*(1-age))*(.3+.7*nutrientLevel/100)))};
+}
+function rebuildCells(){
+ if(!cellGroup)return;
+ while(cellGroup.children.length){const c=cellGroup.children[0];cellGroup.remove(c);c.geometry.dispose();c.material.dispose();}
+ cellGroup.rotation.set(0,0,0);
+ function add(x,y,z,tech,depth,size=.34,offset=0,decor=false){
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(size,10,8),new THREE.MeshStandardMaterial({color:decor?0x64748b:0x34d399,roughness:.5,transparent:decor,opacity:decor?.45:1}));
+  mesh.userData={basePos:new THREE.Vector3(x,y,z),tech,depth,offset,decor,index:cellGroup.children.length};
+  cellGroup.add(mesh);
+ }
+ function build(tech,offset=0){
+  const n=density*200, shape=models[tech].shape;
+  const startIndex=cellGroup.children.length;
+  for(let i=0;i<n;i++){
+   // deterministic sampling: sliders do not randomly rearrange the culture
+   const u=((i*.61803398875)%1),v=((i*.754877666)%1),w=((i*.569840291)%1);
+   const a=u*Math.PI*2;
+   if(shape==='flat'){let x=(i%20-9.5)*.56,z=(Math.floor(i/20)-(Math.ceil(n/20)-1)/2)*.56;add(x,-3,z,tech,0,.27,offset);}
+   else if(shape==='carrier'){
+    const k=i%6,cx=(k%3-1)*3.5,cz=(Math.floor(k/3)-.5)*4;
+    const py=2*v-1,pr=Math.sqrt(1-py*py);add(cx+1.15*pr*Math.cos(a),1.15*py,cz+1.15*pr*Math.sin(a),tech,.12,.24,offset);
+   }else if(shape==='fiber'){
+    const k=i%4,cx=(k-1.5)*2.4;
+    add(cx+.72*Math.cos(a),(v-.5)*9,.72*Math.sin(a),tech,.12,.26,offset);
+   }else if(shape==='root'){
+    const branch=i%9,t=v;
+    const angle=branch*2.39996;
+    add(Math.cos(angle)*(t*4.5)+.12*Math.sin(i),3-7*t,Math.sin(angle)*t*4.5,tech,.15,.27,offset);
+   }else if(shape==='single'){
+    add((u-.5)*11,(v-.5)*8,(w-.5)*9,tech,0,.26,offset);
+   }else if(shape==='suspension'){
+    const k=i%12,theta=i*2.39996;
+    add((k%4-1.5)*2.6+.65*Math.cos(theta),(Math.floor(k/4)-1)*2.8+.65*Math.sin(theta),(w-.5)*1.8,tech,.25,.26,offset);
+   }else{
+    const r=Math.cbrt(w)*4.5,py=2*v-1,pr=Math.sqrt(1-py*py),lump=shape==='callus'?1+.18*Math.sin(3*a):1;
+    add(r*pr*Math.cos(a)*lump,r*py*(shape==='callus'?.65:1),r*pr*Math.sin(a),tech,1-r/4.5,.34,offset);
+   }
+  }
+  const cells=cellGroup.children.slice(startIndex);
+  // Center-out birth ordering keeps new cells next to the existing culture.
+  cells.sort((a,b)=>a.userData.basePos.lengthSq()-b.userData.basePos.lengthSq());
+  cells.forEach((cell,rank)=>{cell.userData.birthRank=rank;cell.userData.populationCapacity=n;});
+  if(shape==='carrier')for(let k=0;k<6;k++)add((k%3-1)*3.5,0,(Math.floor(k/3)-.5)*4,tech,0,1,offset,true);
+  if(shape==='fiber')for(let k=0;k<4;k++)for(let j=0;j<30;j++)add((k-1.5)*2.4,-4.5+j*.3,0,tech,0,.43,offset,true);
+ }
+ if(currentMode==='compare'){build('monolayer',-8);build('spheroid',8);}else build(currentTech);
+ updateGrowthAnimation();updateCutoffVisual();updateMetrics();
+}
+function modelMetricsAtStart(tech){
+ const savedDay=day;day=0;const count=modelMetrics(tech).count;day=savedDay;return count;
+}
+function updateGrowthAnimation(){
+ if(!cellGroup)return;
+ cellGroup.children.forEach(c=>{
+  const d=c.userData,m=models[d.tech],bp=d.basePos;
+  const growth=.92+.08*(1-Math.exp(-day/14))*m.growth;
+  c.position.set(d.offset+bp.x*growth,bp.y*growth,bp.z*growth);
+  const initial=modelMetricsAtStart(d.tech);
+  const current=modelMetrics(d.tech).count;
+  const initialVisible=24*density;
+  const target=Math.min(d.populationCapacity||Infinity,Math.max(1,Math.round(initialVisible*current/initial)));
+  c.userData.growthVisible=d.decor || d.birthRank<target;
+  c.visible=c.userData.growthVisible;
+  if(!d.decor){
+   const local=Math.min(oxygenLevel/100,nutrientLevel/100)-(1-m.transport)*d.depth*(.25+day/30)*density/2;
+   c.material.color.setHex(!enableHeatmap?(currentMode==='plant'?0x4ade80:0x34d399):local<.18?0xf43f5e:local<.45?0xfbbf24:0x34d399);
+  }
+ });
+}
+function updateCutoffVisual(){
+ if(!cellGroup)return;
+ const limit=((Number(cutoffValue)-50)/50)*8;
+ cellGroup.children.forEach(c=>{c.visible=c.userData.growthVisible && (!enableCutoff||c.position.x-c.userData.offset<limit);});
+ document.getElementById('badge-cutoff').textContent='3D 단면: '+(enableCutoff?'켜짐':'꺼짐');
+}
+function updateMetrics(){
+ document.getElementById('current-day').textContent=day.toFixed(1);
+ const t=currentMode==='compare'?'spheroid':currentTech,r=modelMetrics(t);
+ document.getElementById('stat-cell-count').textContent=r.count.toFixed(2);
+ document.getElementById('stat-viability').textContent=r.viability.toFixed(1);
+ document.getElementById('metric-oxygen').textContent=r.oxygen.toFixed(0)+' mmHg';
+ document.getElementById('bar-oxygen').style.width=Math.min(100,r.oxygen/1.4)+'%';
+ document.getElementById('metric-diffusion').textContent=r.diffusion.toFixed(0)+'%';
+ document.getElementById('bar-diffusion').style.width=r.diffusion+'%';
+ document.getElementById('badge-phase').textContent=day<4?'モデル適応期'.replace('モデル適応期','모델: 초기 적응'):day<20?'모델: 성장 구간':'모델: 성장 둔화 구간';
+ const note=document.getElementById('model-note');
+ if(note)note.textContent=currentMode==='compare'?`원리 설명용 가상 모델 · 왼쪽 2D / 오른쪽 3D · 수치 패널은 오른쪽 3D 기준. 같은 조건의 2D 산소 지표: ${modelMetrics('monolayer').oxygen.toFixed(0)} mmHg`:'원리 설명용 가상 모델 · 구체 1개는 여러 세포를 대표하며 개별 분열을 재현하지 않습니다. · 세포종·배지·유량에 따라 실제 결과는 달라집니다. 기술의 우열이나 실제 배양 결과를 예측하지 않습니다.';
+}
+function setPlayUI(){
+ const b=document.getElementById('play-pause-btn');
+ b.innerHTML='<span id="play-text">'+(isPlaying?'일시정지':'재생')+'</span>';
+}
+function togglePlayPause(){if(day>=30)day=0;isPlaying=!isPlaying;setPlayUI();}
+function resetSimulation(){isPlaying=false;day=0;document.getElementById('timeline-slider').value=0;setPlayUI();updateGrowthAnimation();updateCutoffVisual();updateMetrics();}
+function triggerNutrientPulse(){nutrientLevel=100;document.getElementById('slider-nutrient').value=100;document.getElementById('val-nutrient').textContent='100%';updateGrowthAnimation();updateCutoffVisual();updateMetrics();}
+let previousFrame=null;
+function animate(timestamp){
+ requestAnimationFrame(animate);
+ const dt=previousFrame===null||!Number.isFinite(timestamp)?0:Math.min(.1,(timestamp-previousFrame)/1000);previousFrame=Number.isFinite(timestamp)?timestamp:null;
+ if(isPlaying){day=Math.min(30,day+dt*1.5*speed);if(day>=30){isPlaying=false;setPlayUI();}document.getElementById('timeline-slider').value=day;updateGrowthAnimation();updateCutoffVisual();updateMetrics();}
+ controls.update();renderer.render(scene,camera);
+}
+
+
+// Closed-batch mass-balance model. All coefficients below are illustrative,
+// not calibrated to a cell line; time is an educational scenario in days.
+const batchCache=new Map();
+function batchTrajectory(tech){
+ const key=[tech,density,oxygenLevel,nutrientLevel].join('|');
+ if(batchCache.has(key))return batchCache.get(key);
+ const m=models[tech]||models.spheroid,dt=.05;
+ let live=1.5*density/2,dead=0,food=nutrientLevel/100,waste=0;
+ const capacity=tech==='monolayer'?5.5:tech==='protoplast'?5:tech==='microcarrier'?10:8;
+ const out=[];
+ for(let k=0;k<=600;k++){
+  const t=k*dt;
+  const oxygen=Math.max(0,140*oxygenLevel/100-90*(1-m.transport)*live/capacity-10*live/capacity);
+  const ox=oxygen/(oxygen+18);
+  const substrate=food/(food+.15);
+  const lag=1-Math.exp(-t/1.8);
+  const inhibition=1/(1+Math.pow(waste/.65,2));
+  const division=.55*m.growth*lag*substrate*ox*inhibition*Math.max(0,1-(live+.35*dead)/capacity);
+  const death=.008+.19*Math.pow(.10/(food+.10),2)+.12*Math.max(0,waste-.45)+.15*Math.max(0,(20-oxygen)/20);
+  const net=division-death;
+  out.push({count:live,dead,food,waste,oxygen,viability:100*live/Math.max(.0001,live+dead),diffusion:100*m.transport*substrate,division,death,net});
+  // Nutrient is consumed by new biomass and by maintenance of living cells.
+  const births=division*live*dt,loss=death*live*dt;
+  const used=Math.min(food,.13*births+.012*live*dt);
+  food=Math.max(0,food-used);waste+=used*.9;
+  live=Math.max(0,live+births-loss);dead+=loss;
+ }
+ if(batchCache.size>80)batchCache.clear();
+ batchCache.set(key,out);return out;
+}
+function modelMetrics(tech){return batchTrajectory(tech)[Math.min(600,Math.max(0,Math.round(day/.05)))];}
+const updateBatchMetricsBase=updateMetrics;
+updateMetrics=function(){
+ updateBatchMetricsBase();
+ const tech=currentMode==='compare'?'spheroid':currentTech,r=modelMetrics(tech);
+ const stage=day<2?'초기 적응':r.net<-.015?'사멸 우세':r.net<.025?'성장 정체':'순증식';
+ document.getElementById('badge-phase').textContent=stage;
+ const note=document.getElementById('model-note');
+ note.textContent=`무교체 배양 · 초기 영양분 대비 잔량 ${nutrientLevel?Math.round(100*r.food/(nutrientLevel/100)):0}% · 노폐물 지표 ${r.waste.toFixed(2)} (상대 단위) · ${currentMode==='compare'?'왼쪽 2D / 오른쪽 3D. 수치는 오른쪽 기준. ':''}실험 검증 전 교육용 모델: 세포종별 실제 배양 일수·수율을 예측하지 않습니다. 구체는 세포 집단을 대표합니다.`;
+};
+// Color and visible population both track the batch state, not elapsed time alone.
+const updateBatchVisualBase=updateGrowthAnimation;
+updateGrowthAnimation=function(){
+ updateBatchVisualBase();
+ cellGroup.children.forEach(c=>{
+  const d=c.userData;if(d.decor||!enableHeatmap)return;
+  const r=modelMetrics(d.tech),m=models[d.tech];
+  const supply=Math.min(r.food/.4,r.oxygen/65)-(1-m.transport)*d.depth*.35;
+  c.material.color.setHex(supply<.15||r.net<-.07?0xf43f5e:supply<.5||r.net<.025?0xfbbf24:0x34d399);
+ });
+};
+function triggerNutrientPulse(){/* No medium replacement in this closed-batch scenario. */}
+
+
+// Medium exchanges are recorded on the timeline and replayed in the mass balance.
+let cultureProtocol='batch';
+let mediumEvents=[];
+function batchTrajectory(tech){
+ const key=JSON.stringify([tech,density,oxygenLevel,nutrientLevel,cultureProtocol,mediumEvents]);
+ if(batchCache.has(key))return batchCache.get(key);
+ const m=models[tech]||models.spheroid,dt=.05;
+ let live=1.5*density/2,dead=0,food=nutrientLevel/100,waste=0;
+ const capacity=tech==='monolayer'?5.5:tech==='protoplast'?5:tech==='microcarrier'?10:8;
+ const out=[];
+ for(let k=0;k<=600;k++){
+  if(cultureProtocol==='manual')mediumEvents.filter(e=>e.step===k).forEach(e=>{
+   food=food*(1-e.fraction)+(nutrientLevel/100)*e.fraction;
+   waste*=1-e.fraction;
+  });
+  const t=k*dt;
+  const oxygen=Math.max(0,140*oxygenLevel/100-90*(1-m.transport)*live/capacity-10*live/capacity);
+  const ox=oxygen/(oxygen+18),substrate=food/(food+.12);
+  const lag=1-Math.exp(-t/1.8),inhibition=1/(1+Math.pow(waste/.6,2));
+  const division=.34*m.growth*lag*substrate*ox*inhibition*Math.max(0,1-(live+.35*dead)/capacity);
+  // Smooth starvation response; no fixed calendar date forces death.
+  const death=.004+.045*Math.pow(.06/(food+.06),2)+.04*Math.max(0,waste-.4)+.10*Math.max(0,(20-oxygen)/20);
+  out.push({count:live,dead,food,waste,oxygen,viability:100*live/Math.max(.0001,live+dead),diffusion:100*m.transport*substrate,division,death,net:division-death});
+  const births=division*live*dt,loss=death*live*dt;
+  const used=Math.min(food,.10*births+.0025*live*dt);
+  food=Math.max(0,food-used);waste+=used*.9;
+  live=Math.max(0,live+births-loss);dead+=loss;
+ }
+ if(batchCache.size>80)batchCache.clear();batchCache.set(key,out);return out;
+}
+function refreshCulture(){updateGrowthAnimation();updateCutoffVisual();updateMetrics();}
+function setCultureProtocol(value){
+ cultureProtocol=value;mediumEvents=[];batchCache.clear();
+ const button=document.getElementById('medium-exchange');button.disabled=value!=='manual';
+ button.style.opacity=value==='manual'?'1':'.4';
+ refreshCulture();
+}
+function triggerNutrientPulse(){
+ if(cultureProtocol!=='manual')return;
+ const step=Math.max(0,Math.min(600,Math.round(day/.05)));
+ // Editing an earlier time creates a new branch; later interventions are discarded.
+ mediumEvents=mediumEvents.filter(e=>e.step<=step);
+ mediumEvents.push({step,fraction:.5});batchCache.clear();refreshCulture();
+}
+const resetBeforeExchange=resetSimulation;
+resetSimulation=function(){mediumEvents=[];batchCache.clear();resetBeforeExchange();};
+const updateBeforeExchange=updateMetrics;
+updateMetrics=function(){
+ updateBeforeExchange();
+ const r=modelMetrics(currentMode==='compare'?'spheroid':currentTech);
+ const count=mediumEvents.filter(e=>e.step<=Math.round(day/.05)).length;
+ document.getElementById('model-note').textContent=
+ `${cultureProtocol==='manual'?'수동 배지 교체':'배지 무교체'} · 잔여 영양분 ${nutrientLevel?Math.round(r.food/(nutrientLevel/100)*100):0}% · 노폐물 ${r.waste.toFixed(2)} (상대 단위) · 교체 ${count}회 · ${currentMode==='compare'?'왼쪽 2D / 오른쪽 3D, 수치 패널은 오른쪽 기준. ':''}교육용 가상 모델이며 실제 배양 일수·수율을 예측하지 않습니다. 구체 1개는 여러 세포를 대표합니다.`;
+ const log=document.getElementById('exchange-log');
+ if(log)log.textContent=count?'적용한 교체: '+mediumEvents.filter(e=>e.step<=Math.round(day/.05)).map(e=>'Day '+(e.step*.05).toFixed(1)).join(', '):'교체 기록 없음';
+};
+
+
+function pairedTrajectories(){
+ const tech=currentMode==='compare'?'spheroid':currentTech;
+ const saved=cultureProtocol;
+ cultureProtocol='batch';const batch=batchTrajectory(tech);
+ cultureProtocol='manual';const exchanged=batchTrajectory(tech);
+ cultureProtocol=saved;return {batch,exchanged};
+}
+function demoMediumComparison(){
+ cultureProtocol='manual';mediumEvents=[{step:200,fraction:.5}];batchCache.clear();
+ document.getElementById('culture-protocol').value='manual';
+ const b=document.getElementById('medium-exchange');b.disabled=false;b.style.opacity='1';
+ isPlaying=false;setPlayUI();onTimelineChange(15);
+}
+const comparisonCharts={};
+function renderComparison(){
+ const panel=document.getElementById('paired-summary');if(!panel)return;
+ const pair=pairedTrajectories(),step=Math.min(600,Math.max(0,Math.round(day/.05)));
+ const active=mediumEvents.filter(e=>e.step<=step).length;
+ const rows=[['무교체',pair.batch[step]],['교체 기록 적용 ('+active+'회)',pair.exchanged[step]]];
+ panel.innerHTML=rows.map(([title,r])=>`<article class="p-4 rounded-lg border border-slate-700"><h3 class="font-semibold">${title}</h3><p class="text-sm mt-2">생존 ${r.count.toFixed(2)} ×10⁶ · 생존율 ${r.viability.toFixed(1)}%</p><p class="text-xs mt-2 text-slate-300">영양분 ${nutrientLevel?(100*r.food/(nutrientLevel/100)).toFixed(1):'0'}% · 노폐물 ${r.waste.toFixed(2)}</p></article>`).join('');
+ document.getElementById('comparison-explanation').textContent=active?'현재 교체 기록을 같은 초기 조건의 무교체 배양과 비교합니다. 교체 효과는 조건에 따라 달라지며, 공간·산소 제한은 배지 교체만으로 없어지지 않습니다.':'아직 적용된 교체가 없으므로 두 조건은 같습니다. 직접 교체 모드에서 버튼을 누르거나 발표 시연을 선택하세요.';
+ const samples=[];for(let k=0;k<=step;k+=10)samples.push(k);if(samples.at(-1)!==step)samples.push(step);
+ const specs=[['trend-live','count','×10⁶',v=>v],['trend-food','food','초기 대비 %',v=>nutrientLevel?v/(nutrientLevel/100)*100:0],['trend-waste','waste','상대 단위',v=>v]];
+ if(typeof Chart==='undefined')document.getElementById('chart-error').textContent='그래프 라이브러리를 불러오지 못했습니다. 아래 일별 계산값 표는 사용할 수 있습니다.';
+ else for(const [id,field,unit,convert] of specs){
+  const data={datasets:[['무교체',pair.batch,'#4D86E8'],['교체 기록 적용',pair.exchanged,'#D96B2A']].map(([label,tr,color],j)=>({label,data:samples.map(k=>({x:k*.05,y:convert(tr[k][field])})),borderColor:color,borderWidth:2,pointRadius:0,pointHitRadius:12,borderDash:j?[5,3]:[],tension:0}))};
+  if(!comparisonCharts[id])comparisonCharts[id]=new Chart(document.getElementById(id),{type:'line',data,options:{animation:false,responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#CDD3E0',boxWidth:12}},tooltip:{callbacks:{title:items=>'Day '+items[0].parsed.x.toFixed(1)}}},scales:{x:{type:'linear',min:0,max:30,title:{display:true,text:'배양 시간 (일)',color:'#CDD3E0'},ticks:{color:'#CDD3E0',maxTicksLimit:5},grid:{color:'#343C52'}},y:{beginAtZero:true,title:{display:true,text:unit,color:'#CDD3E0'},ticks:{color:'#CDD3E0',maxTicksLimit:5},grid:{color:'#343C52'}}}}});
+  else{comparisonCharts[id].data=data;comparisonCharts[id].update('none');}
+ }
+ const days=[];for(let k=0;k<=step;k+=20)days.push(k);if(days.at(-1)!==step)days.push(step);
+ document.getElementById('trajectory-table').innerHTML=days.map(k=>[['무교체',pair.batch[k]],['교체 기록適用'.replace('適用','적용'),pair.exchanged[k]]].map(([label,r])=>`<tr><td>${(k*.05).toFixed(1)}</td><td>${label}</td><td>${r.count.toFixed(3)}</td><td>${nutrientLevel?(100*r.food/(nutrientLevel/100)).toFixed(1):0}</td><td>${r.waste.toFixed(3)}</td></tr>`).join('')).join('');
+}
+const metricsBeforeComparison=updateMetrics;
+let lastComparisonKey='';
+updateMetrics=function(){
+ metricsBeforeComparison();
+ const key=JSON.stringify([Math.round(day*20),currentTech,currentMode,density,oxygenLevel,nutrientLevel,cultureProtocol,mediumEvents]);
+ if(key!==lastComparisonKey){lastComparisonKey=key;renderComparison();}
+};
+const visualBeforeSeparation=updateGrowthAnimation;
+updateGrowthAnimation=function(){
+ visualBeforeSeparation();
+ cellGroup.children.forEach(c=>{
+  const d=c.userData;if(d.decor)return;
+  const r=modelMetrics(d.tech),initial=modelMetricsAtStart(d.tech),ratio=24*density/initial;
+  const living=Math.round(r.count*ratio),dead=Math.round(r.dead*ratio);
+  const isDead=d.birthRank>=living;
+  c.userData.growthVisible=d.birthRank<living;c.visible=c.userData.growthVisible;
+  const local=Math.max(0,Math.min(1,Math.min(r.food/.5,r.oxygen/90)-(1-models[d.tech].transport)*d.depth*.35));
+  c.material.color.setHex(isDead?0x737D96:!enableHeatmap?0xAEC8F5:local<.33?0x2A5FC0:local<.66?0x7FA9EE:0xAEC8F5);
+  c.scale.setScalar(isDead?.65:1);
+ });
+};
+
     </script>
 </body>
 </html>
