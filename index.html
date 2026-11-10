@@ -272,7 +272,7 @@
 <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
 <h2 class="font-bold text-lg">같은 기술 · 같은 초기 조건 · 배지 관리만 비교</h2>
 <p class="text-xs text-slate-400 mt-2">비교 모드에서는 오른쪽 스페로이드를 기준으로 합니다. 왼쪽은 무교체, 오른쪽은 기록한 교체를 적용한 가상 대조 실험입니다. 미래 예측선 대신 현재 시점까지의 경과만 표시합니다.</p>
-<div class="flex flex-wrap gap-2 mt-4"><button onclick="demoMediumComparison()" class="bg-cyan-700 rounded px-4 py-2 text-sm">발표 시연: Day 10 교체 → Day 15 비교</button><button onclick="resetSimulation()" class="bg-slate-700 rounded px-4 py-2 text-sm">처음부터 다시</button></div>
+<div class="flex flex-wrap gap-2 mt-4"><button onclick="demoMediumComparison()" class="bg-cyan-700 rounded px-4 py-2 text-sm">배지 교체 비교: Day 10 교체 → Day 15</button><button onclick="resetSimulation()" class="bg-slate-700 rounded px-4 py-2 text-sm">처음부터 다시</button></div>
 <div id="paired-summary" class="grid sm:grid-cols-2 gap-4 my-4" aria-live="polite"></div>
 <p id="comparison-explanation" class="text-xs text-slate-300 mb-4"></p>
 <div class="grid lg:grid-cols-3 gap-4">
@@ -281,7 +281,7 @@
 <div class="chart-card"><h3>노폐물 축적</h3><div style="height:230px"><canvas id="trend-waste" aria-label="노폐물 경과"></canvas></div></div>
 </div><p id="chart-error" class="text-xs text-amber-300 mt-2"></p>
 <details class="mt-4 text-xs"><summary class="cursor-pointer">일별 계산값 표 보기 · 접근성 대체 자료</summary><div class="overflow-auto mt-3" style="max-height:300px"><table class="w-full text-left"><thead><tr><th>Day</th><th>조건</th><th>생존 세포 (×10⁶)</th><th>영양분 (%)</th><th>노폐물 (상대 단위)</th></tr></thead><tbody id="trajectory-table"></tbody></table></div></details>
-<details class="mt-4 text-xs leading-relaxed"><summary class="cursor-pointer">모델의 가정과 한계 · 발표에서 설명할 내용</summary><ul class="list-disc pl-5 mt-2 space-y-2">
+<details class="mt-4 text-xs leading-relaxed"><summary class="cursor-pointer">모델의 가정과 한계</summary><ul class="list-disc pl-5 mt-2 space-y-2">
 <li>실험 자료가 아닌 가상 계산 결과입니다. 세포종별 증식·소비·사멸 계수와 공간 한계는 임의의 교육용 값이며, 기술별 수율 순위를 판단할 수 없습니다.</li>
 <li>생존 세포 = 이전 생존 세포 + 새로 생성된 세포 − 죽은 세포. 영양분은 증식과 유지에 소비되고, 소비에 따라 노폐물이 축적됩니다.</li>
 <li>50% 배지 교체는 영양분 농도를 신선한 배지와 절반씩 혼합하고 노폐물을 절반으로 줄입니다. 죽은 세포가 살아나지는 않습니다. 모든 기술에서 세포를 유지한 채 배지만 교체한다고 가정합니다.</li>
@@ -294,7 +294,7 @@
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
             <h3 id="tech-title" class="text-base font-bold text-cyan-400 mb-2 flex items-center space-x-2">
                 <i data-lucide="book-open" class="w-4 h-4"></i>
-                <span>기술 및 발표 가이드</span>
+                <span>배양 기술 안내</span>
             </h3>
             <p id="tech-desc" class="text-xs text-slate-300 leading-relaxed">
                 기술 정보가 상단에 연동되어 표출됩니다.
@@ -305,21 +305,21 @@
     <!-- Logic JavaScript -->
     <script>
         const ANIMAL_TECHS = [
-            { id: 'spheroid', name: '3D 스페로이드/오가노이드', desc: '【발표 6~7단계】 세포들이 3차원 입체 구형으로 뭉쳐 자라며 생체 조직과 유사한 산소/영양분 확산 경사면을 형성합니다. 크기 증가에 따라 부피 대비 표면적(3/r)이 줄어들어 중심부에 저산소/괴사층이 생깁니다.' },
+            { id: 'spheroid', name: '3D 스페로이드/오가노이드', desc: '세포들이 3차원 입체 구형으로 뭉쳐 자라며 생체 조직과 유사한 산소/영양분 확산 경사면을 형성합니다. 크기 증가에 따라 부피 대비 표면적(3/r)이 줄어들어 중심부에 저산소/괴사층이 생깁니다.' },
             { id: 'microcarrier', name: '마이크로캐리어 (교반 부유 배양)', desc: '미세한 구체 표면에 부착 세포를 부착시켜 교반 바이오리액터 내부에서 높은 수율로 대량 증식시키는 산업용 배양 방식입니다.' },
-            { id: 'monolayer', name: '2D 단층 부착 배양 (Monolayer)', desc: '【발표 6단계】 평평한 용기 바닥에 세포가 1층으로 붙어 자라며 모든 세포가 동일한 환경에 노출되지만, 입체적 세포 간 상호작용 및 산소 구배는 모사하지 못합니다.' },
-            { id: 'hollowfiber', name: '중공섬유 바이오리액터 (Hollow Fiber)', desc: '【발표 9단계】 미세 다공성 관 내부로 배지를 continuous flow로 주입해 인체 혈관망을 모사하여 3D 고밀도 조직 내부 확산 한계를 극복합니다.' }
+            { id: 'monolayer', name: '2D 단층 부착 배양 (Monolayer)', desc: '평평한 용기 바닥에 세포가 1층으로 붙어 자라며 모든 세포가 동일한 환경에 노출되지만, 입체적 세포 간 상호작용 및 산소 구배는 모사하지 못합니다.' },
+            { id: 'hollowfiber', name: '중공섬유 바이오리액터 (Hollow Fiber)', desc: '미세 다공성 관 내부로 배지를 continuous flow로 주입해 인체 혈관망을 모사하여 3D 고밀도 조직 내부 확산 한계를 극복합니다.' }
         ];
 
         const PLANT_TECHS = [
-            { id: 'callus', name: '캘러스 배양 (Callus Culture)', desc: '【발표 5단계】 상처 부위에서 유도되는 탈분화 무정형 세포 덩어리로, 세포의 전능성(Totipotency)을 바탕으로 적절한 호르몬 등 조건에서 식물체로 재분화할 수 있습니다.' },
+            { id: 'callus', name: '캘러스 배양 (Callus Culture)', desc: '상처 부위에서 유도되는 탈분화 무정형 세포 덩어리로, 세포의 전능성(Totipotency)을 바탕으로 적절한 호르몬 등 조건에서 식물체로 재분화할 수 있습니다.' },
             { id: 'suspension', name: '식물 부유 세포 배양 (Suspension)', desc: '캘러스 세포를 액체 배지에서 액상 교반하여 미세 집합체 형태로 균일하게 대량 증식시키는 이차대사산물 생산 기술입니다.' },
             { id: 'hairyroot', name: '모상근 배양 (Hairy Root Culture)', desc: 'Agrobacterium rhizogenes 균주를 이용해 형질전환된 뿌리 조직을 영구 분지 증식시켜 생리활성 물질을 대량 생산합니다.' },
             { id: 'protoplast', name: '원형질체 배양 (Protoplast)', desc: '식물 세포벽을 효소로 제거한 원형질체 형태로 유전자 도입 및 세포 융합 연구의 기초 모델로 활용됩니다.' }
         ];
 
         const COMPARE_TECHS = [
-            { id: 'compare_direct', name: '2D vs 3D 병렬 직접 비교 모드', desc: '【발표 라이브 시연】 왼쪽 2D 단층 배양(고른 환경 노출)과 오른쪽 3D 입체 스페로이드(중심부 산소 부족 및 약물 침투 저항성)의 차이를 동시에 비교 시연합니다.' }
+            { id: 'compare_direct', name: '2D vs 3D 병렬 직접 비교 모드', desc: '왼쪽 2D 단층 배양(고른 환경 노출)과 오른쪽 3D 입체 스페로이드(중심부 산소 부족 및 약물 침투 저항성)의 차이를 동시에 비교 시연합니다.' }
         ];
 
         let currentMode = 'animal';
@@ -948,7 +948,7 @@ function renderComparison(){
  const active=mediumEvents.filter(e=>e.step<=step).length;
  const rows=[['무교체',pair.batch[step]],['교체 기록 적용 ('+active+'회)',pair.exchanged[step]]];
  panel.innerHTML=rows.map(([title,r])=>`<article class="p-4 rounded-lg border border-slate-700"><h3 class="font-semibold">${title}</h3><p class="text-sm mt-2">생존 ${r.count.toFixed(2)} ×10⁶ · 생존율 ${r.viability.toFixed(1)}%</p><p class="text-xs mt-2 text-slate-300">영양분 ${nutrientLevel?(100*r.food/(nutrientLevel/100)).toFixed(1):'0'}% · 노폐물 ${r.waste.toFixed(2)}</p></article>`).join('');
- document.getElementById('comparison-explanation').textContent=active?'현재 교체 기록을 같은 초기 조건의 무교체 배양과 비교합니다. 교체 효과는 조건에 따라 달라지며, 공간·산소 제한은 배지 교체만으로 없어지지 않습니다.':'아직 적용된 교체가 없으므로 두 조건은 같습니다. 직접 교체 모드에서 버튼을 누르거나 발표 시연을 선택하세요.';
+ document.getElementById('comparison-explanation').textContent=active?'현재 교체 기록을 같은 초기 조건의 무교체 배양과 비교합니다. 교체 효과는 조건에 따라 달라지며, 공간·산소 제한은 배지 교체만으로 없어지지 않습니다.':'아직 적용된 교체가 없으므로 두 조건은 같습니다. 직접 교체 모드에서 버튼을 누르거나 배지 교체 비교를 선택하세요.';
  const samples=[];for(let k=0;k<=step;k+=10)samples.push(k);if(samples.at(-1)!==step)samples.push(step);
  const specs=[['trend-live','count','×10⁶',v=>v],['trend-food','food','초기 대비 %',v=>nutrientLevel?v/(nutrientLevel/100)*100:0],['trend-waste','waste','상대 단위',v=>v]];
  if(typeof Chart==='undefined')document.getElementById('chart-error').textContent='그래프 라이브러리를 불러오지 못했습니다. 아래 일별 계산값 표는 사용할 수 있습니다.';
